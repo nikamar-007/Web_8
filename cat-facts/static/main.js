@@ -104,12 +104,27 @@ function renderRecords(records) {
     }
 }
 
+// функция для обработки поиска
+function searchBtnHandler(event) {
+    event.preventDefault();
+    downloadData(1);
+}
+
+// обновленная функция downloadData с поддержкой поиска
 function downloadData(page=1) {
     let factsList = document.querySelector('.facts-list');
     let url = new URL(factsList.dataset.url);
     let perPage = document.querySelector('.per-page-btn').value;
+    let searchQuery = document.querySelector('.search-field').value;
+    
     url.searchParams.append('page', page);
     url.searchParams.append('per-page', perPage);
+    
+    // добавляем параметр поиска, если он есть
+    if (searchQuery) {
+        url.searchParams.append('q', searchQuery);
+    }
+    
     let xhr = new XMLHttpRequest();
     xhr.open('GET', url);
     xhr.responseType = 'json';
@@ -121,8 +136,74 @@ function downloadData(page=1) {
     xhr.send();
 }
 
+// функции для автодополнения
+function createAutocompleteItem(suggestion) {
+    let item = document.createElement('div');
+    item.classList.add('autocomplete-item');
+    item.innerHTML = suggestion;
+    item.addEventListener('click', function() {
+        document.querySelector('.search-field').value = suggestion;
+        hideAutocomplete();
+    });
+    return item;
+}
+
+function renderAutocomplete(suggestions) {
+    let autocomplete = document.querySelector('.autocomplete');
+    autocomplete.innerHTML = '';
+    
+    if (suggestions.length > 0) {
+        suggestions.forEach(suggestion => {
+            autocomplete.append(createAutocompleteItem(suggestion));
+        });
+        autocomplete.style.display = 'block';
+    } else {
+        hideAutocomplete();
+    }
+}
+
+function hideAutocomplete() {
+    document.querySelector('.autocomplete').style.display = 'none';
+}
+
+function downloadAutocomplete(query) {
+    if (query.length < 1) {
+        hideAutocomplete();
+        return;
+    }
+    
+    let url = new URL('http://cat-facts-api.std-900.ist.mospolytech.ru/autocomplete');
+    url.searchParams.append('q', query);
+    
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', url);
+    xhr.responseType = 'json';
+    xhr.onload = function () {
+        renderAutocomplete(this.response);
+    }
+    xhr.send();
+}
+
+// обработчик ввода в поле поиска
+function searchFieldHandler(event) {
+    clearTimeout(window.autocompleteTimeout);
+    window.autocompleteTimeout = setTimeout(() => {
+        downloadAutocomplete(event.target.value);
+    }, 300);
+}
+
 window.onload = function () {
     downloadData();
     document.querySelector('.pagination').onclick = pageBtnHandler;
     document.querySelector('.per-page-btn').onchange = perPageBtnHandler;
+    document.querySelector('.search-btn').onclick = searchBtnHandler;
+    document.querySelector('.search-field').oninput = searchFieldHandler;
+    document.querySelector('.search-field').addEventListener('blur', function() {
+        setTimeout(hideAutocomplete, 200);
+    });
+    
+    // создаем контейнер для автодополнения
+    let autocomplete = document.createElement('div');
+    autocomplete.classList.add('autocomplete');
+    document.querySelector('.search-form').appendChild(autocomplete);
 }
